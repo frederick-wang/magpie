@@ -25,13 +25,14 @@ const vendors = [
   { id: "exa", name: "Exa", keysURL: "https://dashboard.exa.ai/api-keys", base: "https://api.exa.ai" },
   { id: "firecrawl", name: "Firecrawl", keysURL: "https://www.firecrawl.dev/app/api-keys", base: "https://api.firecrawl.dev" },
   { id: "you", name: "You.com", keysURL: "https://you.com/platform", base: "https://ydc-index.io", keyOptional: true },
+  { id: "jina", name: "Jina", keysURL: "https://jina.ai/api-dashboard/key-manager", base: "https://s.jina.ai" },
   { id: "searxng", name: "SearXNG", needURL: true },
 ];
 const words = {
   en: { head: "Web search", name: "Search APIs", none: "No provider can search", add: "Add", remove: "Remove", refused: "Brave Search: 401 bad key", show: "Show", hide: "Hide", copy: "Copy",
-    base: "Base URL, empty for https://api.tavily.com", exaBase: "Base URL, empty for https://api.exa.ai", keep: "Another key for Tavily, or empty to keep its keys", youKey: "API key, or empty for its free search" },
+    base: "Base URL, empty for https://api.tavily.com", exaBase: "Base URL, empty for https://api.exa.ai", jinaBase: "Base URL, empty for https://s.jina.ai (https://s.jinaai.cn in China)", keep: "Another key for Tavily, or empty to keep its keys", youKey: "API key, or empty for its free search" },
   zh: { head: "联网搜索", name: "搜索 API", none: "没有能搜索的供应商", add: "添加", remove: "移除", refused: "Brave Search: 401 bad key", show: "显示", hide: "隐藏", copy: "复制",
-    base: "API 地址，留空则用 https://api.tavily.com", exaBase: "API 地址，留空则用 https://api.exa.ai", keep: "Tavily 的另一个密钥，留空则保留它的密钥", youKey: "API 密钥，留空则用其免费搜索" },
+    base: "API 地址，留空则用 https://api.tavily.com", exaBase: "API 地址，留空则用 https://api.exa.ai", jinaBase: "API 地址，留空则用 https://s.jina.ai（中国大陆可用 https://s.jinaai.cn）", keep: "Tavily 的另一个密钥，留空则保留它的密钥", youKey: "API 密钥，留空则用其免费搜索" },
 };
 
 function serve(lang, posted) {
@@ -166,6 +167,10 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       assert.deepEqual(await list.locator(".row.search-api .name").allInnerTexts(), ["1. Tavily", "2. SearXNG"]);
 
       // Exa at a base URL of the user's own (#1580): sent with its key
+      // Jina's placeholder names its China endpoint too (jina-ai/reader#1237)
+      await click(head.locator("button.search-vendor"));
+      await click(page.locator(".proto-menu .pm-item", { hasText: "Jina" }));
+      assert.equal(await url.getAttribute("placeholder"), w.jinaBase);
       await click(head.locator("button.search-vendor"));
       await click(page.locator(".proto-menu .pm-item", { hasText: "Exa" }));
       assert.equal(await url.getAttribute("placeholder"), w.exaBase);

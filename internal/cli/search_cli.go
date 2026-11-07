@@ -35,12 +35,13 @@ const searchUsage = `usage:
                                              Codex's web_search): 1 to 20, 6 by default;
                                              "magpie search count default" puts 6 back
 
-  apis: tavily, brave, exa, firecrawl, you, deepseek, volcengine, wsa, searxng
+  apis: tavily, brave, exa, firecrawl, you, deepseek, volcengine, wsa, jina, searxng
         and the ones a plugin gives (its search hook), as <plugin>:<id> in magpie's Settings
         › Models › Web search; a plugin that is off gives none
 
   url= is the API's base URL, for an endpoint of your own that answers as that API
-  does (e.g. url=https://search.example.com/tavily). Without it the vendor's own is
+  does (e.g. url=https://search.example.com/tavily, or url=https://s.jinaai.cn for Jina
+  in China). Without it the vendor's own is
   used; a new key alone keeps the url set before, and url= with nothing after it puts
   the vendor's own back. magpie puts the API's path after it (/search for Tavily), so
   a url given with that path at its end is taken as its base. The key is sent only
@@ -74,7 +75,7 @@ func searchCmd(args []string) error {
 	if len(args) == 0 {
 		as := provider.StoredSearchAPIs()
 		if len(as) == 0 {
-			fmt.Println(muted.Render("  no search API · magpie search add <tavily|brave|exa|firecrawl|you|deepseek|volcengine|wsa|searxng> <key>"))
+			fmt.Println(muted.Render("  no search API · magpie search add <tavily|brave|exa|firecrawl|you|deepseek|volcengine|wsa|jina|searxng> <key>"))
 			return nil
 		}
 		for i, a := range as {

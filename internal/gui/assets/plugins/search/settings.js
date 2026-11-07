@@ -60,7 +60,9 @@ function renderSearch(s, keep) {
     // never puts the vendor's own back in its place
     if (d.urlOf !== d.vendor) { d.url = saved()?.url || ""; d.urlOf = d.vendor; }
     url.value = d.url;
-    url.placeholder = v.needURL ? "https://searx.example.com" : t("Base URL, empty for {url}", { url: v.base || "" });
+    url.placeholder = v.needURL ? "https://searx.example.com"
+      : v.id === "jina" ? t("Base URL, empty for {url} ({cn} in China)", { url: v.base || "", cn: "https://s.jinaai.cn" })
+      : t("Base URL, empty for {url}", { url: v.base || "" });
     url.setAttribute("aria-label", v.needURL ? t("Address") : t("Base URL"));
     key.placeholder = v.needURL ? t("API key, if it needs one")
       : saved()?.keyList?.length ? t("Another key for {name}, or empty to keep its keys", { name: v.name || "" })

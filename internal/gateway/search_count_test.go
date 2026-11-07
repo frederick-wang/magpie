@@ -130,6 +130,7 @@ func TestSearchCountReachesEveryAPI(t *testing.T) {
 		{"deepseek", `"count":12`},
 		{"volcengine", `"Count":12`},
 		{"wsa", `"Cnt":20`},
+		{"jina", `"num":12`},
 		{"you", `"count":12`},
 	} {
 		s.askSearchAPI(ctx, provider.SearchAPI{Vendor: c.vendor, Key: "k", URL: f.URL}, "latest go")
