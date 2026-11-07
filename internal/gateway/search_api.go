@@ -427,6 +427,11 @@ func (s *Server) askSearchAPI(ctx context.Context, a provider.SearchAPI, query s
 		// a smaller one is turned away, so the fewest that covers n, cut
 		// to n below
 		post("/SearchPro", map[string]any{"Query": query, "Cnt": wsaCntFor(n)})
+	case "jina":
+		// Jina Reader's s.jina.ai search (s.jinaai.cn in China,
+		// jina-ai/reader#1237): X-Respond-With: no-content asks for the
+		// SERP's snippets without crawling each page
+		post("/", map[string]any{"q": query, "num": n})
 	case "searxng":
 		get("/search", url.Values{"q": {query}, "format": {"json"}})
 	case "you":
@@ -451,6 +456,9 @@ func (s *Server) askSearchAPI(ctx context.Context, a provider.SearchAPI, query s
 	if a.Vendor == "you" {
 		// the tag You.com asked for, to tell magpie's searches apart (#1626)
 		r.Header.Set("User-Agent", SearchAgent+" youdotcom-integration/yetone-magpie")
+	}
+	if a.Vendor == "jina" {
+		r.Header.Set("X-Respond-With", "no-content")
 	}
 	if a.Key != "" {
 		switch a.Vendor {
@@ -511,6 +519,18 @@ func (s *Server) askSearchAPI(ctx context.Context, a provider.SearchAPI, query s
 			var e struct{ Message string }
 			if json.Unmarshal(b, &e) == nil && e.Message != "" {
 				msg = e.Message
+			}
+		}
+		if a.Vendor == "jina" {
+			// Jina's ParamValidationError puts the status number ("40001")
+			// in message and the words in readableMessage
+			var e struct {
+				Status          int    `json:"status"`
+				Message         string `json:"message"`
+				ReadableMessage string `json:"readableMessage"`
+			}
+			if json.Unmarshal(b, &e) == nil && e.ReadableMessage != "" && (e.Message == "" || e.Message == fmt.Sprint(e.Status)) {
+				msg = e.ReadableMessage
 			}
 		}
 		// an API that says the key back in its error doesn't get it into
@@ -600,22 +620,23 @@ func readSearchAPI(vendor string, b []byte) ([]foundPage, error) {
 		return readWSASearch(b)
 	}
 	type result struct {
-		Title       string `json:"title"`
-		URL         string `json:"url"`
-		Content     string `json:"content"`
-		Description string `json:"description"`
-		Text        string `json:"text"`
-		Markdown    string `json:"markdown"`
-		Summary     string `json:"summary"` // deepseek: its longer text for a model
-		Snippet     string `json:"snippet"` // deepseek: its short one
-		Date        string `json:"date"`    // deepseek: RFC 3339, or null
+		Title         string `json:"title"`
+		URL           string `json:"url"`
+		Content       string `json:"content"`
+		Description   string `json:"description"`
+		Text          string `json:"text"`
+		Markdown      string `json:"markdown"`
+		Summary       string `json:"summary"`       // deepseek: its longer text for a model
+		Snippet       string `json:"snippet"`       // deepseek: its short one
+		Date          string `json:"date"`          // deepseek: RFC 3339, or null; jina: age or date
+		PublishedTime string `json:"publishedTime"` // jina: when the page says it was published
 	}
 	var out struct {
 		Results []result `json:"results"` // tavily, exa, searxng, deepseek
 		Web     struct {
 			Results []result `json:"results"`
 		} `json:"web"` // brave
-		Data json.RawMessage `json:"data"` // firecrawl: {web: […]}, or […] on its v1
+		Data json.RawMessage `json:"data"` // firecrawl: {web: […]}, or […] on its v1; jina: […]
 	}
 	if err := json.Unmarshal(b, &out); err != nil {
 		return nil, err
@@ -633,6 +654,12 @@ func readSearchAPI(vendor string, b []byte) ([]foundPage, error) {
 		} else {
 			rs = v2.Web
 		}
+	case "jina":
+		if len(out.Data) > 0 && string(out.Data) != "null" {
+			if err := json.Unmarshal(out.Data, &rs); err != nil {
+				return nil, err
+			}
+		}
 	}
 	var pages []foundPage
 	for _, r := range rs {
@@ -649,7 +676,11 @@ func readSearchAPI(vendor string, b []byte) ([]foundPage, error) {
 		if title == "" {
 			title = r.URL
 		}
-		pages = append(pages, foundPage{Title: title, URL: r.URL, Text: clipText(searchPlain(text), pageText), Age: r.Date})
+		age := r.Date
+		if age == "" {
+			age = r.PublishedTime
+		}
+		pages = append(pages, foundPage{Title: title, URL: r.URL, Text: clipText(searchPlain(text), pageText), Age: age})
 	}
 	return pages, nil
 }

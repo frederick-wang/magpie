@@ -1652,7 +1652,7 @@ answers as that API does (#1580). Empty is the vendor's own
 takes only an `http://` or `https://` URL with a host and no `?query` or
 `#fragment`, since `askSearchAPI` puts the vendor's path after it
 (`/search`, `/res/v1/web/search`, `/v2/search`, `/v1/tools/search`,
-`/search_api/web_search`, `/SearchPro`; `SearchVendor.Paths`) with the slash at its end
+`/search_api/web_search`, `/SearchPro`, `/`; `SearchVendor.Paths`) with the slash at its end
 trimmed. A URL given ending in that path (`…/search` for Tavily, any
 case) is its base: `SetSearchAPI` saves it without the path, and
 `SearchAPI.Base` drops it from one saved with it before, so it is asked
@@ -1686,7 +1686,8 @@ is only ever the user's.
 
 A value the user set is never replaced by the vendor's default. In
 Settings › Models › Web search the field sits under the key for every API,
-with the vendor's own address as its placeholder. Picking an API that is
+with the vendor's own address as its placeholder (and `https://s.jinaai.cn`
+named beside Jina's `https://s.jina.ai` for China, `jina-ai/reader#1237`). Picking an API that is
 already added fills in its saved URL, so Add with a new key alone keeps
 the URL, and Add with no key changes only the URL. On the CLI,
 `magpie search add <api> <key>` keeps the URL set before, and `url=` with
@@ -1796,7 +1797,10 @@ plain error (`TestVolcengineSearchAPI`). Yuanbao Search (Tencent Cloud,
 not opened) as 403, `ResourceUnavailable` (an account in arrears),
 `LimitExceeded` and `ResourceInsufficient` as 402,
 `RequestLimitExceeded.*` as 429; any other code is a plain error
-(`TestWSASearchAPI`). A resting key is not dropped:
+(`TestWSASearchAPI`). Jina (`jina`, `https://s.jina.ai`, `POST /` with
+`X-Respond-With: no-content` and `{"q": …, "num": …}`) answers with HTTP
+401, 402 and 429 on refusals and puts a validation error's words in
+`readableMessage` when `message` is the status number (`TestJinaSearchAPI`). A resting key is not dropped:
 it is asked after every key that isn't, the one back soonest first, so a
 search still has every key to fall back on. A key that answers wakes.
 Rests are held by vendor and a hash of the key (`searchKeyID`), never the
@@ -2655,7 +2659,7 @@ go test -tags nogui ./internal/gateway -run 'TestCreditsExhaustedIsOutOfCredit|T
 go test -tags nogui ./internal/gateway ./internal/usage -run 'TestRetriedRequestCountsOnce|TestRequestsCountedOnceWithTheirRetries'
 go test -tags nogui ./internal/gateway -run 'TestRemoteMagpie|TestRedactedKinds|TestKeyLimitTellsOnlyTheCaller'
 go test -tags nogui ./internal/gateway -run 'TestSearchMCP|TestVisionMCP|TestWorkBuddySearchesForItsModels|TestWorkBuddyPluginSearches|TestAutoVisionPassesOverOneOut|TestAutoVisionTierAmongThoseWithAllowance|TestSpentModelAcrossAccounts|TestVisionDoesNotAskSpentDescriber|TestSearcherPassesOverOneOut'
-go test -tags nogui ./internal/gateway ./internal/gui . -run 'TestSearchAPIAtItsOwnBaseURL|TestSearchKeyStaysAtItsBaseURL|TestSearchAPIBaseURLFromSettings|TestSearchCLI'
+go test -tags nogui ./internal/gateway ./internal/gui . -run 'TestSearchAPIAtItsOwnBaseURL|TestSearchKeyStaysAtItsBaseURL|TestSearchAPIBaseURLFromSettings|TestSearchCLI|TestJinaSearchAPI'
 go test -tags nogui ./internal/redact ./internal/gui -run 'TestMoreKinds|TestCategoryDefaults|TestRedactKindsAreRedacts|TestRedactRuleEdit'
 go test -tags nogui ./internal/provider -run 'TestCodexCompressed|TestCodexWarmGoesZstd'
 go test -tags nogui ./internal/gateway -run 'TestCodexAccountTextTurnGoesZstd|TestCodexRelayedTextTurnGoesZstd|TestCodexTurnAskedAgainGoesZstdAgain|TestCodexCompactAndAPIKeyStayPlain|TestKeyProviderTurnStaysPlain|TestCodexResetJudgedByTheBytesSent'

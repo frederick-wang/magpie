@@ -590,3 +590,115 @@ func TestWSASearchAPI(t *testing.T) {
 		t.Errorf("vendor %+v", v)
 	}
 }
+
+// Jina Reader's s.jina.ai search (s.jinaai.cn in China,
+// jina-ai/reader#1237): POST / with X-Respond-With: no-content and
+// {"q": ..., "num": ...}, reading data's snippets or content and
+// ParamValidationError's readableMessage.
+func TestJinaSearchAPI(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	raw, err := os.ReadFile("testdata/jina_search.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var mu sync.Mutex
+	var got map[string]any
+	var line, auth, respondWith string
+	answer := func(w http.ResponseWriter) { w.Write(raw) }
+	f := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		var body map[string]any
+		json.Unmarshal(b, &body)
+		mu.Lock()
+		got = body
+		line = r.Method + " " + r.URL.Path + " " + r.Header.Get("Content-Type") + " " + r.Header.Get("Accept")
+		auth = r.Header.Get("Authorization")
+		respondWith = r.Header.Get("X-Respond-With")
+		a := answer
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		a(w)
+	}))
+	t.Cleanup(f.Close)
+	s := New()
+	a := provider.SearchAPI{Vendor: "jina", Key: "jina_secret_key_value", URL: f.URL}
+
+	pages, err := s.askSearchAPI(context.Background(), a, "go 1.24 release notes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pages) != 2 ||
+		pages[0].URL != "https://go.dev/doc/devel/release" ||
+		pages[0].Title != "Release History - The Go Programming Language" ||
+		pages[0].Text != "This page summarizes the changes between official stable releases of Go. Go 1.24 (released 2025-02-11) includes generic type aliases and swiss tables." ||
+		pages[0].Age != "2 days ago" ||
+		pages[1].URL != "https://go.dev/doc/go1.24" ||
+		pages[1].Title != "Go 1.24 Release Notes" ||
+		pages[1].Text != "The latest Go release, version 1.24, arrives six months after Go 1.23. Most of its changes are in the implementation of the toolchain, runtime, and libraries." ||
+		pages[1].Age != "2025-02-11T00:00:00Z" {
+		t.Fatalf("pages %+v", pages)
+	}
+	if line != "POST / application/json application/json" || auth != "Bearer jina_secret_key_value" || respondWith != "no-content" {
+		t.Fatalf("asked %q auth=%q X-Respond-With=%q", line, auth, respondWith)
+	}
+	if len(got) != 2 || got["q"] != "go 1.24 release notes" || got["num"] != float64(6) {
+		t.Fatalf("body %v", got)
+	}
+
+	for _, c := range []struct {
+		status int
+		retry  string
+		body   string
+		want   int
+		why    string
+		said   string
+	}{
+		{
+			401, "",
+			`{"data":null,"code":401,"name":"AuthenticationFailedError","status":40102,"message":"Invalid API key jina_secret_key_value, please get a new one from https://jina.ai","readableMessage":"AuthenticationFailedError: Invalid API key"}`,
+			401, "turned away", "Invalid API key",
+		},
+		{
+			402, "",
+			`{"data":null,"code":402,"name":"InsufficientBalanceError","status":40203,"message":"Account balance not enough to run this query, please recharge.","readableMessage":"InsufficientBalanceError: Account balance not enough to run this query, please recharge."}`,
+			402, "out of credit", "Account balance not enough",
+		},
+		{
+			429, "45",
+			`{"detail":"Rate limit exceeded. Too many requests or tokens per minute.","code":"RATE_LIMIT_EXCEEDED"}`,
+			429, "rate limited", "Rate limit exceeded",
+		},
+		{
+			400, "",
+			`{"data":null,"code":400,"name":"ParamValidationError","status":40001,"message":"40001","readableMessage":"ParamValidationError(num): Rejected by validator (v) => v >= 0 && v <= 20. jina_secret_key_value"}`,
+			0, "", "ParamValidationError(num)",
+		},
+	} {
+		mu.Lock()
+		answer = func(w http.ResponseWriter) {
+			if c.retry != "" {
+				w.Header().Set("Retry-After", c.retry)
+			}
+			w.WriteHeader(c.status)
+			io.WriteString(w, c.body)
+		}
+		mu.Unlock()
+		_, err := s.askSearchAPI(context.Background(), a, "q")
+		if err == nil || !strings.Contains(err.Error(), c.said) || strings.Contains(err.Error(), "jina_secret_key_value") {
+			t.Fatalf("%d: %v", c.status, err)
+		}
+		var r searchRefused
+		if refused := errors.As(err, &r); refused != (c.want != 0) || refused && r.status != c.want {
+			t.Fatalf("%d: %#v", c.status, err)
+		}
+		if c.want != 0 {
+			if _, why := searchRestFor("jina", r.status, r.retryAfter, time.Now()); why != c.why {
+				t.Errorf("%d rests as %q", c.status, why)
+			}
+		}
+	}
+	if v, ok := provider.SearchVendorOf("jina"); !ok || v.Name != "Jina" || v.Base != "https://s.jina.ai" || v.KeyOptional ||
+		v.KeysURL != "https://jina.ai/api-dashboard/key-manager" {
+		t.Errorf("vendor %+v", v)
+	}
+}

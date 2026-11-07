@@ -1,0 +1,36 @@
+{
+  "code": 200,
+  "status": 20000,
+  "meta": {
+    "usage": {
+      "tokens": 10000
+    }
+  },
+  "data": [
+    {
+      "title": "Release History - The Go Programming Language",
+      "url": "https://go.dev/doc/devel/release",
+      "description": "This page summarizes the changes between official stable releases of <b>Go</b>. Go 1.24 (released 2025-02-11) includes generic type aliases and swiss tables.",
+      "date": "2 days ago",
+      "content": "",
+      "usage": {
+        "tokens": 10000
+      }
+    },
+    {
+      "title": "Go 1.24 Release Notes",
+      "url": "https://go.dev/doc/go1.24",
+      "description": "Short SERP snippet",
+      "publishedTime": "2025-02-11T00:00:00Z",
+      "content": "The latest Go release, version 1.24, arrives six months after Go 1.23. Most of its changes are in the implementation of the toolchain, runtime, and libraries.",
+      "usage": {
+        "tokens": 2500
+      }
+    },
+    {
+      "title": "No URL entry",
+      "url": "",
+      "description": "Skipped because it has no URL"
+    }
+  ]
+}
